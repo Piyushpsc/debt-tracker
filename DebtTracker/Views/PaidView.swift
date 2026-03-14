@@ -9,24 +9,41 @@ struct PaidView: View {
     @Environment(ItemStore.self) private var store
     @State private var searchText = ""
     @State private var selectedCurrencyCode: String? = nil
+    @State private var selectedLenderName: String? = nil
 
     private var items: [RepaymentItem] { store.paidItems }
 
+    private var itemsAfterCurrencyFilter: [RepaymentItem] {
+        guard let code = selectedCurrencyCode else { return items }
+        return items.filter { $0.currencyCode == code }
+    }
+
     private var currencyChips: [(label: String, code: String?)] {
         let codes = Set(items.map(\.currencyCode)).sorted()
-        let allChip = [("All", nil as String?)]
+        let allChip = [("All (\(items.count))", nil as String?)]
         let currencyChips = codes.map { code -> (String, String?) in
             let currency = allCurrencies.first { $0.code == code }
                 ?? Currency(code: code, symbol: code, flag: "🌐", name: code)
-            return ("\(currency.symbol) \(currency.code)", code)
+            let count = items.filter { $0.currencyCode == code }.count
+            return ("\(currency.symbol) \(currency.code) (\(count))", code)
         }
         return allChip + currencyChips
     }
 
+    private var lenderChips: [(label: String, name: String?)] {
+        let names = Set(itemsAfterCurrencyFilter.map(\.lenderName)).sorted()
+        let allChip = [("All (\(itemsAfterCurrencyFilter.count))", nil as String?)]
+        let lenderChips = names.map { name -> (String, String?) in
+            let count = itemsAfterCurrencyFilter.filter { $0.lenderName == name }.count
+            return ("\(name) (\(count))", name)
+        }
+        return allChip + lenderChips
+    }
+
     private var filteredItems: [RepaymentItem] {
-        var list = items
-        if let code = selectedCurrencyCode {
-            list = list.filter { $0.currencyCode == code }
+        var list = itemsAfterCurrencyFilter
+        if let name = selectedLenderName {
+            list = list.filter { $0.lenderName == name }
         }
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return list }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -58,6 +75,7 @@ struct PaidView: View {
                                             let isSelected = selectedCurrencyCode == chip.code
                                             Button {
                                                 selectedCurrencyCode = chip.code
+                                                selectedLenderName = nil
                                             } label: {
                                                 Text(chip.label)
                                                     .font(.subheadline.weight(.medium))
@@ -84,9 +102,38 @@ struct PaidView: View {
                                 .padding(.bottom, 4)
                             }
 
+                            if lenderChips.count > 1 {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 6) {
+                                        ForEach(Array(lenderChips.enumerated()), id: \.offset) { _, chip in
+                                            let isSelected = selectedLenderName == chip.name
+                                            Button {
+                                                selectedLenderName = chip.name
+                                            } label: {
+                                                Text(chip.label)
+                                                    .font(.caption.weight(.medium))
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 6)
+                                                    .background(
+                                                        Capsule()
+                                                            .fill(isSelected
+                                                                ? Color(red: 0.5, green: 0.35, blue: 1).opacity(0.85)
+                                                                : Color(.tertiarySystemFill).opacity(0.8)
+                                                            )
+                                                    )
+                                                    .foregroundStyle(isSelected ? .white : .secondary)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                                .padding(.bottom, 4)
+                            }
+
                             LazyVStack(spacing: 12) {
                                 ForEach(filteredItems) { item in
-                                    NavigationLink(value: item) {
+                                    NavigationLink(value: item.id) {
                                         PaidRow(item: item)
                                     }
                                     .buttonStyle(.plain)
@@ -103,8 +150,8 @@ struct PaidView: View {
             .searchable(text: $searchText, prompt: "Search by title or lender")
             .navigationTitle("Paid")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: RepaymentItem.self) { item in
-                ItemDetailView(item: item)
+            .navigationDestination(for: UUID.self) { id in
+                ItemDetailView(itemId: id)
             }
         }
     }

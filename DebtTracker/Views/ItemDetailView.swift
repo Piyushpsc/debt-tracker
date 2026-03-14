@@ -19,7 +19,7 @@ private let timeFormatter: DateFormatter = {
 
 struct ItemDetailView: View {
     @Environment(ItemStore.self) private var store
-    let item: RepaymentItem
+    let itemId: UUID
     @State private var showRepaySheet = false
     @State private var showEditItem = false
     @State private var showDeleteConfirm = false
@@ -33,12 +33,18 @@ struct ItemDetailView: View {
         var id: String { rawValue }
     }
 
-    private var currentItem: RepaymentItem {
-        store.item(byId: item.id) ?? item
+    /// Always read from store so edits reflect instantly.
+    private var currentItem: RepaymentItem? {
+        store.item(byId: itemId)
     }
 
     var body: some View {
-        detailContent(item: currentItem)
+        if let item = currentItem {
+            detailContent(item: item)
+        } else {
+            Color.clear
+                .onAppear { dismiss() }
+        }
     }
 
     @ViewBuilder
@@ -123,22 +129,24 @@ struct ItemDetailView: View {
             }
         }
         .sheet(isPresented: $showEditItem) {
-            EditItemView(item: currentItem)
-                .environment(store)
+            if let item = currentItem {
+                EditItemView(item: item)
+                    .environment(store)
+            }
         }
-        .confirmationDialog("Delete item?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .confirmationDialog("Delete this item?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Yes", role: .destructive) {
                 store.deleteItem(id: item.id)
                 dismiss()
             }
-            Button("Cancel", role: .cancel) { }
+            Button("No", role: .cancel) { }
         } message: {
-            Text("This will permanently delete \"\(currentItem.title)\" and all its repayments.")
+            Text("This item and all its details will be permanently deleted. Are you sure you want to delete?")
         }
         .sheet(isPresented: $showRepaySheet) {
             AddInstallmentSheetView(
-                remainingAmount: currentItem.remainingAmount,
-                currencyCode: currentItem.currencyCode,
+                remainingAmount: item.remainingAmount,
+                currencyCode: item.currencyCode,
                 onCancel: { showRepaySheet = false },
                 onAdd: { amount, date in
                     store.addRepayment(itemId: item.id, amount: amount, date: date)
@@ -311,16 +319,17 @@ private struct AddInstallmentSheetView: View {
 }
 
 #Preview {
-    NavigationStack {
-        ItemDetailView(item: RepaymentItem(
-            title: "MBA",
-            amount: 315000,
-            lenderName: "Shrikant Ajoba",
-            installments: [
-                Installment(date: Date().addingTimeInterval(-86400 * 30), amount: 50000),
-                Installment(date: Date().addingTimeInterval(-86400 * 7), amount: 25000)
-            ]
-        ))
-    }
-    .environment(ItemStore())
+    let store = ItemStore()
+    let item = RepaymentItem(
+        title: "MBA",
+        amount: 315000,
+        lenderName: "Shrikant Ajoba",
+        installments: [
+            Installment(date: Date().addingTimeInterval(-86400 * 30), amount: 50000),
+            Installment(date: Date().addingTimeInterval(-86400 * 7), amount: 25000)
+        ]
+    )
+    store.items = [item]
+    return NavigationStack { ItemDetailView(itemId: item.id) }
+        .environment(store)
 }

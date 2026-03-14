@@ -10,11 +10,13 @@ import SwiftUI
 @main
 struct DebtTrackerApp: App {
     @State private var itemStore = ItemStore()
+    @State private var appSettings = AppSettings()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(itemStore)
+                .environment(appSettings)
         }
     }
 }

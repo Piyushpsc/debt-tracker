@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(ItemStore.self) private var store
+    @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
         TabView {
@@ -28,10 +29,12 @@ struct ContentView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
         }
+        .preferredColorScheme(appSettings.resolvedColorScheme)
     }
 }
 
 #Preview {
     ContentView()
         .environment(ItemStore())
+        .environment(AppSettings())
 }

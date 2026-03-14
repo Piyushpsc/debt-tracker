@@ -17,6 +17,20 @@ final class AppSettings {
         set { defaults.set(newValue, forKey: "use24HourTime") }
     }
 
+    /// "system", "light", or "dark"
+    var appearance: String {
+        get { defaults.string(forKey: "appearance") ?? "system" }
+        set { defaults.set(newValue, forKey: "appearance") }
+    }
+
+    var resolvedColorScheme: ColorScheme? {
+        switch appearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
+
     var notificationsEnabled: Bool {
         get { defaults.bool(forKey: "notificationsEnabled") }
         set { defaults.set(newValue, forKey: "notificationsEnabled") }
@@ -26,7 +40,7 @@ final class AppSettings {
 // MARK: - SettingsView
 struct SettingsView: View {
     @Environment(ItemStore.self) private var store
-    @State private var settings = AppSettings()
+    @Environment(AppSettings.self) private var settings
     @State private var showExportSheet = false
     @State private var showImportPicker = false
     @State private var showImportSuccessAlert = false
@@ -81,6 +95,15 @@ struct SettingsView: View {
     // MARK: General
     private var generalSection: some View {
         Section {
+            Picker(selection: $settings.appearance) {
+                Text("System").tag("system")
+                Text("Light").tag("light")
+                Text("Dark").tag("dark")
+            } label: {
+                Label("Appearance", systemImage: "circle.lefthalf.filled")
+            }
+            .foregroundStyle(adaptiveText)
+
             Toggle(isOn: $settings.use24HourTime) {
                 Label("24-hour time", systemImage: "clock")
             }
@@ -361,6 +384,7 @@ struct SettingsView: View {
     }
 
     private func resetSettings() {
+        settings.appearance = "system"
         settings.use24HourTime = false
         settings.notificationsEnabled = false
     }
